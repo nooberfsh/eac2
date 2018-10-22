@@ -11,6 +11,22 @@ pub enum Token {
     NT(NoneTerminal),
 }
 
+impl Token {
+    fn is_terminal(&self) -> bool {
+        match self {
+            Token::T(_) => true,
+            _ => false,
+        }
+    }
+
+    fn is_non_terminal(&self) -> bool {
+        match self {
+            Token::NT(_) => true,
+            _ => false,
+        }
+    }
+}
+
 #[derive(Clone)]
 pub struct Production {
     non_terminal: NoneTerminal,
@@ -116,7 +132,7 @@ fn eliminate_direct_left_recursion(prods: Vec<Production>) -> (Vec<Production>, 
 }
 
 pub type First = HashMap<Token, Vec<Terminal>>;
-pub type Follow = HashMap<Token, Vec<Terminal>>;
+pub type Follow = HashMap<NoneTerminal, Vec<Terminal>>;
 
 pub fn first(cfg: &NoneLeftRecursionCFG) -> First {
     let cfg = &cfg.0;
@@ -156,8 +172,37 @@ pub fn first(cfg: &NoneLeftRecursionCFG) -> First {
     first
 }
 
-pub fn follow(cfg: &NoneLeftRecursionCFG) -> Follow {
-    unimplemented!()
+pub fn follow(cfg: &NoneLeftRecursionCFG, first: &First) -> Follow {
+    let cfg = &cfg.0;
+    let mut follow: HashMap<_, _>= cfg.non_terminals.clone().into_iter().map(|nt| (nt, vec![])).collect();
+    follow.insert(cfg.start.clone(), vec![Terminal::eof()]);
+
+    let mut updated = true;
+    let productions: Vec<_> = cfg.productions.values().flatten().collect();
+
+    while updated {
+        for p in &productions {
+            let mut trailer = first.get(&Token::NT(p.non_terminal.clone())).unwrap();
+            for t in p.tokens.iter().rev() {
+                match t {
+                    Token::NT(nt) => {
+                        if follow_insert_and_check_if_updated(&mut follow, nt, trailer) {
+                            updated = true;
+                        }
+                        let trai = first.get(t).clone().unwrap();
+                        if exist_empty(follow.get(nt).unwrap()) {
+                            remove_empty(&mut trai);
+                            trailer.extend(trai);
+                        } else {
+                            trailer = trai;
+                        }
+                    }
+                    _ => trailer = first.get(t).clone().unwrap(),
+                }
+            }
+        }
+    }
+    follow
 }
 
 fn exist_empty(ts: &Vec<Terminal>) -> bool {
@@ -173,7 +218,11 @@ fn remove_empty(ts: &mut Vec<Terminal>) {
     ts.remove_item(&Terminal::empty());
 }
 
-fn insert_and_check_if_updated(first: &mut First, key: &Token, rhs: Vec<Terminal>) -> bool {
+fn first_insert_and_check_if_updated(first: &mut First, key: &Token, rhs: Vec<Terminal>) -> bool {
     let first = first.get_mut(key).unwrap();
+    unimplemented!()
+}
+
+fn follow_insert_and_check_if_updated(follow: &mut Follow, key: &NoneTerminal, trailer: &Vec<Terminal>) {
     unimplemented!()
 }
