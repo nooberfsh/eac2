@@ -164,7 +164,7 @@ pub fn first(cfg: &NoneLeftRecursionCFG) -> First {
             if idx == tokens.len() - 1 && exist_empty(first.get(&tokens[idx]).unwrap()) {
                 rhs.push(Terminal::empty())
             }
-            if insert_and_check_if_updated(&mut first, &key, rhs) {
+            if first_insert_and_check_if_updated(&mut first, &key, rhs) {
                 updated = true
             }
         }
@@ -182,14 +182,14 @@ pub fn follow(cfg: &NoneLeftRecursionCFG, first: &First) -> Follow {
 
     while updated {
         for p in &productions {
-            let mut trailer = first.get(&Token::NT(p.non_terminal.clone())).unwrap();
+            let mut trailer = first.get(&Token::NT(p.non_terminal.clone())).unwrap().clone();
             for t in p.tokens.iter().rev() {
                 match t {
                     Token::NT(nt) => {
-                        if follow_insert_and_check_if_updated(&mut follow, nt, trailer) {
+                        if follow_insert_and_check_if_updated(&mut follow, nt, &trailer) {
                             updated = true;
                         }
-                        let trai = first.get(t).clone().unwrap();
+                        let mut trai = first.get(t).unwrap().clone();
                         if exist_empty(follow.get(nt).unwrap()) {
                             remove_empty(&mut trai);
                             trailer.extend(trai);
@@ -197,7 +197,7 @@ pub fn follow(cfg: &NoneLeftRecursionCFG, first: &First) -> Follow {
                             trailer = trai;
                         }
                     }
-                    _ => trailer = first.get(t).clone().unwrap(),
+                    _ => trailer = first.get(t).unwrap().clone(),
                 }
             }
         }
@@ -223,6 +223,6 @@ fn first_insert_and_check_if_updated(first: &mut First, key: &Token, rhs: Vec<Te
     unimplemented!()
 }
 
-fn follow_insert_and_check_if_updated(follow: &mut Follow, key: &NoneTerminal, trailer: &Vec<Terminal>) {
+fn follow_insert_and_check_if_updated(follow: &mut Follow, key: &NoneTerminal, trailer: &Vec<Terminal>) -> bool{
     unimplemented!()
 }
