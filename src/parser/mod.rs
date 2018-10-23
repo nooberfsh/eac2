@@ -309,23 +309,24 @@ pub fn follow(cfg: &NoneLeftRecursionCFG, first: &First) -> Follow {
     let productions: Vec<_> = cfg.productions.values().flatten().collect();
 
     while updated {
+        updated = false;
         for p in &productions {
-            let mut trailer = first.get(&Token::NT(p.non_terminal.clone())).unwrap().clone();
-            for t in p.tokens.iter().rev() {
-                match t {
+            let mut trailer = follow.get(&p.non_terminal).unwrap().clone();
+            for token in p.tokens.iter().rev() {
+                match token {
                     Token::NT(nt) => {
                         if append(follow.get_mut(nt).unwrap(), trailer.clone()) {
                             updated = true
                         }
-                        let mut trai = first.get(t).unwrap().clone();
-                        if exist_empty(follow.get(nt).unwrap()) {
+                        let mut trai = first.get(token).unwrap().clone();
+                        if exist_empty(&trai) {
                             remove_empty(&mut trai);
                             trailer.extend(trai);
                         } else {
                             trailer = trai;
                         }
                     }
-                    _ => trailer = first.get(t).unwrap().clone(),
+                    _ => trailer = first.get(token).unwrap().clone(),
                 }
             }
         }

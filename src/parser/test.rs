@@ -51,7 +51,7 @@ lazy_static! {
     static ref FOLLOW: Vec<(&'static str, Vec<&'static str>)> = vec! {
         ("Goal", vec!["eof@@"]),
         ("Expr", vec!["eof@@", ")"]),
-        ("Expr@", vec!["eof@@", "+", "-", ")"]),
+        ("Expr@", vec!["eof@@", ")"]),
         ("Term", vec!["eof@@", "+", "-", ")"]),
         ("Term@", vec!["eof@@", "+", "-", ")"]),
         ("Factor", vec!["eof@@", "+", "-", "*", "/", ")"]),
@@ -117,6 +117,20 @@ fn test_first() {
     assert_eq!(first.len(), FIRST.len());
     for (nt, expect) in FIRST.clone() {
         let f = first.get_mut(&Token::NT(NoneTerminal::new(nt))).unwrap();
+        f.sort();
+        let mut expect: Vec<_> = expect.into_iter().map(|s| Terminal::new(s)).collect();
+        expect.sort();
+        assert_eq!(f, &mut expect);
+    }
+}
+
+#[test]
+fn test_follow() {
+    let cfg = gen_cfg(&GRAMMER).into_non_left_recursion();
+    let first = first(&cfg);
+    let mut follow = follow(&cfg, &first);
+    for (nt, expect) in FOLLOW.clone() {
+        let f = follow.get_mut(&NoneTerminal::new(nt)).unwrap();
         f.sort();
         let mut expect: Vec<_> = expect.into_iter().map(|s| Terminal::new(s)).collect();
         expect.sort();
