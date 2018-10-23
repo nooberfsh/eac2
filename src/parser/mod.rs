@@ -105,9 +105,8 @@ impl CFG {
         for (_, ps) in &prods {
             for p in ps {
                 for t in &p.tokens {
-                    match t {
-                        Token::T(t) => { ts.insert(t.clone());},
-                        _ => {}
+                    if let Token::T(t) = t {
+                        ts.insert(t.clone());
                     }
                 }
             }
@@ -262,6 +261,9 @@ pub type Follow = HashMap<NoneTerminal, Vec<Terminal>>;
 pub fn first(cfg: &NoneLeftRecursionCFG) -> First {
     let cfg = &cfg.0;
     let mut first = First::new();
+    for nt in cfg.non_terminals.clone() {
+        first.insert(Token::NT(nt.clone()), vec![]);
+    }
     for t in cfg.terminals.clone() {
         first.insert(Token::T(t.clone()), vec![t]);
     }
@@ -270,6 +272,7 @@ pub fn first(cfg: &NoneLeftRecursionCFG) -> First {
     let mut updated = true;
     let productions: Vec<_> = cfg.productions.values().flatten().collect();
     while updated {
+        updated = false;
         for &p in &productions {
             let mut rhs = vec![];
             let key = Token::NT(p.non_terminal.clone());
@@ -289,7 +292,7 @@ pub fn first(cfg: &NoneLeftRecursionCFG) -> First {
             if idx == tokens.len() - 1 && exist_empty(first.get(&tokens[idx]).unwrap()) {
                 rhs.push(Terminal::empty())
             }
-            if first_insert_and_check_if_updated(&mut first, &key, rhs) {
+            if append(first.get_mut(&key).unwrap(), rhs) {
                 updated = true
             }
         }
@@ -311,8 +314,8 @@ pub fn follow(cfg: &NoneLeftRecursionCFG, first: &First) -> Follow {
             for t in p.tokens.iter().rev() {
                 match t {
                     Token::NT(nt) => {
-                        if follow_insert_and_check_if_updated(&mut follow, nt, &trailer) {
-                            updated = true;
+                        if append(follow.get_mut(nt).unwrap(), trailer.clone()) {
+                            updated = true
                         }
                         let mut trai = first.get(t).unwrap().clone();
                         if exist_empty(follow.get(nt).unwrap()) {
@@ -343,13 +346,17 @@ fn remove_empty(ts: &mut Vec<Terminal>) {
     ts.remove_item(&Terminal::empty());
 }
 
-fn first_insert_and_check_if_updated(first: &mut First, key: &Token, rhs: Vec<Terminal>) -> bool {
-    let first = first.get_mut(key).unwrap();
-    unimplemented!()
-}
-
-fn follow_insert_and_check_if_updated(follow: &mut Follow, key: &NoneTerminal, trailer: &Vec<Terminal>) -> bool{
-    unimplemented!()
+fn append(dst: &mut Vec<Terminal>, src: Vec<Terminal>) -> bool {
+    let mut ret = false;  
+    let mut hashed: HashSet<_> = dst.clone().into_iter().collect();
+    for t in src {
+        if hashed.get(&t).is_none() {
+            dst.push(t.clone());
+            hashed.insert(t);
+            ret = true;
+        }
+    }
+    ret
 }
 
 #[cfg(test)]

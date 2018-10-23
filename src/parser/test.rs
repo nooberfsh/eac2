@@ -12,7 +12,7 @@ lazy_static! {
         ("Expr", vec!["Expr", "-", "Term"]),
         ("Expr", vec!["Term"]),
 
-        ("Term", vec!["Term", "x", "Factor"]),
+        ("Term", vec!["Term", "*", "Factor"]),
         ("Term", vec!["Term", "/", "Factor"]),
         ("Term", vec!["Factor"]),
 
@@ -30,13 +30,31 @@ lazy_static! {
         ("Expr@", vec!["empty@@"]),
 
         ("Term", vec!["Factor", "Term@"]),
-        ("Term@", vec!["x", "Factor", "Term@"]),
+        ("Term@", vec!["*", "Factor", "Term@"]),
         ("Term@", vec!["/", "Factor", "Term@"]),
         ("Term@", vec!["empty@@"]),
 
         ("Factor", vec!["(", "Expr", ")"]),
         ("Factor", vec!["num"]),
         ("Factor", vec!["name"])
+    };
+
+    static ref FIRST: Vec<(&'static str, Vec<&'static str>)> = vec! {
+        ("Goal", vec!["(", "name", "num"]),
+        ("Expr", vec!["(", "name", "num"]),
+        ("Expr@", vec!["+", "-", "empty@@"]),
+        ("Term", vec!["(", "name", "num"]),
+        ("Term@", vec!["*", "/", "empty@@"]),
+        ("Factor", vec!["(", "name", "num"]),
+    };
+
+    static ref FOLLOW: Vec<(&'static str, Vec<&'static str>)> = vec! {
+        ("Goal", vec!["eof@@"]),
+        ("Expr", vec!["eof@@", ")"]),
+        ("Expr@", vec!["eof@@", "+", "-", ")"]),
+        ("Term", vec!["eof@@", "+", "-", ")"]),
+        ("Term@", vec!["eof@@", "+", "-", ")"]),
+        ("Factor", vec!["eof@@", "+", "-", "*", "/", ")"]),
     };
 }
 
@@ -90,4 +108,18 @@ fn test_eleminate_left_recursion() {
     let input = gen_cfg(&GRAMMER).into_non_left_recursion();
     let expected = gen_cfg(&RIGHT_RECURSIVE_GRAMMER);
     assert_cfg_eq(&input.0, &expected)
+}
+
+#[test]
+fn test_first() {
+    let cfg = gen_cfg(&GRAMMER).into_non_left_recursion();
+    let mut first: HashMap<_, _>= first(&cfg).into_iter().filter(|(ref t, _)|t.is_non_terminal()).collect();
+    assert_eq!(first.len(), FIRST.len());
+    for (nt, expect) in FIRST.clone() {
+        let f = first.get_mut(&Token::NT(NoneTerminal::new(nt))).unwrap();
+        f.sort();
+        let mut expect: Vec<_> = expect.into_iter().map(|s| Terminal::new(s)).collect();
+        expect.sort();
+        assert_eq!(f, &mut expect);
+    }
 }
