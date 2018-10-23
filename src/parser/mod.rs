@@ -1,73 +1,164 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
+use std::fmt;
 
-#[derive(Eq, PartialEq, Clone, Hash)]
-pub struct Terminal;
-#[derive(Eq, PartialEq, Clone, Hash)]
-pub struct NoneTerminal;
+#[derive(Eq, PartialEq, Clone, Hash, Ord, PartialOrd, Debug)]
+pub struct Terminal(String);
+#[derive(Eq, PartialEq, Clone, Hash, Ord, PartialOrd, Debug)]
+pub struct NoneTerminal(String);
 
-#[derive(Eq, PartialEq, Clone, Hash)]
+#[derive(Eq, PartialEq, Clone, Hash, Debug, Ord, PartialOrd)]
 pub enum Token {
     T(Terminal),
     NT(NoneTerminal),
 }
 
 impl Token {
-    fn is_terminal(&self) -> bool {
+    pub fn is_terminal(&self) -> bool {
         match self {
             Token::T(_) => true,
             _ => false,
         }
     }
 
-    fn is_non_terminal(&self) -> bool {
+    pub fn is_non_terminal(&self) -> bool {
         match self {
             Token::NT(_) => true,
             _ => false,
         }
     }
 }
+impl fmt::Display for Terminal {
+    fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
+        write!(f, "{}", self.0)
+    }
+}
 
-#[derive(Clone)]
+impl fmt::Display for NoneTerminal {
+    fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
+        write!(f, "{}", self.0)
+    }
+}
+
+impl fmt::Display for Production {
+    fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
+        write!(f, "{}", self.to_string())
+    }
+}
+
+impl fmt::Display for Token {
+    fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
+        match self {
+            Token::NT(nt) => write!(f, "{}", nt),
+            Token::T(t) => write!(f, "{}", t),
+        }
+    }
+}
+
+#[derive(Clone, Debug, Eq, PartialOrd, Ord, PartialEq)]
 pub struct Production {
     non_terminal: NoneTerminal,
     tokens: Vec<Token>,
 }
 
-pub struct CFG {
-    terminals: Vec<Terminal>,
-    non_terminals: Vec<NoneTerminal>,
-    productions: HashMap<NoneTerminal, Vec<Production>>,
-    start: NoneTerminal,
+impl Production {
+    pub fn new(nt: NoneTerminal, tokens: Vec<Token>) -> Self {
+        Production {
+            non_terminal: nt,
+            tokens
+        }
+    }
+
+    fn to_string(&self) -> String {
+        let mut ret = self.non_terminal.0.clone();
+        ret += " -> ";
+        for t in &self.tokens {
+            let s = match t {
+                Token::T(t) => &t.0,
+                Token::NT(nt) => &nt.0,
+            };
+            ret += s;
+            ret += " ";
+        }
+        ret
+    }
 }
 
-pub struct NoneLeftRecursionCFG(CFG);
+#[derive(Debug)]
+pub struct CFG {
+    pub terminals: Vec<Terminal>,
+    pub non_terminals: Vec<NoneTerminal>,
+    pub productions: HashMap<NoneTerminal, Vec<Production>>,
+    pub start: NoneTerminal,
+}
+
+#[derive(Debug)]
+pub struct NoneLeftRecursionCFG(pub CFG);
 
 impl CFG {
-    pub fn into_non_left_recursion(mut self) -> NoneLeftRecursionCFG {
+    pub fn new(prods: HashMap<NoneTerminal, Vec<Production>>) -> Self {
+        let mut ts = HashSet::new();
+        let mut nts = HashSet::new();
+        for (nt, _) in &prods {
+            nts.insert(nt.clone());
+        }
+
+        for (_, ps) in &prods {
+            for p in ps {
+                for t in &p.tokens {
+                    match t {
+                        Token::T(t) => { ts.insert(t.clone());},
+                        _ => {}
+                    }
+                }
+            }
+        }
+        CFG {
+            terminals: ts.into_iter().collect(),
+            non_terminals: nts.into_iter().collect(),
+            productions: prods,
+            start: NoneTerminal::start(),
+        }
+    }
+
+    pub fn into_non_left_recursion(self) -> NoneLeftRecursionCFG {
         let mut prods = HashMap::new();
-        for nt in &self.non_terminals {
+        for current in &self.non_terminals {
             let mut ps = vec![];
-            for prod in self.productions.get(nt).unwrap() {
+            for prod in self.productions.get(current).unwrap() {
                 match &prod.tokens[0] {
-                    Token::NT(nt) => {
-                        if self.is_preceed(nt, nt) {
+                    Token::NT(nt) if self.is_preceed(current, nt) => {
                             let processed = prods.get(nt).unwrap();
                             let new = replace(prod, &processed);
                             ps.extend(new);
-                        }
                     }
-                    _ => continue,
+                    _ => ps.push(prod.clone())
                 }
             }
             let (lhs, rhs) = eliminate_direct_left_recursion(ps);
-            prods.insert(nt.clone(), lhs);
-            prods.insert(rhs[0].non_terminal.clone(), rhs);
+            prods.insert(current.clone(), lhs);
+            if let Some(rhs) = rhs {
+                prods.insert(rhs[0].non_terminal.clone(), rhs);
+            }
         }
-        self.productions = prods;
-        NoneLeftRecursionCFG(self)
+        NoneLeftRecursionCFG(Self::new(prods))
+    }
+
+    pub fn to_string(&self) -> String {
+        let mut ret = String::new();
+        for ps in self.productions.values() {
+            for p in ps {
+                ret += &p.to_string();
+                ret += "\n";
+            }
+            ret += "\n";
+        }
+        ret
     }
 
     fn is_preceed(&self, lhs: &NoneTerminal, rhs: &NoneTerminal) -> bool {
+        if lhs == rhs {
+            return false
+        }
         for nt in &self.non_terminals {
             if nt == rhs {
                 return true;
@@ -79,22 +170,53 @@ impl CFG {
     }
 }
 
-fn fork(nt: &NoneTerminal) -> NoneTerminal {
-    unimplemented!()
-}
+impl NoneTerminal {
+    pub fn new<T: Into<String>>(t: T) -> Self {
+        NoneTerminal(t.into())
+    }
 
-fn new_empty_terminal() -> Terminal {
-    unimplemented!()
+    pub fn fork(&self) -> Self {
+        let s = self.0.clone() + "@";
+        Self::new(s)
+    }
+
+    pub fn start() -> Self {
+        Self::new("Goal")
+    }
 }
 
 impl Terminal {
-    fn new(c: char) -> Self {unimplemented!()}
-    fn empty() -> Self {unimplemented!()}
-    fn eof() -> Self {unimplemented!()}
+    pub fn new<T: Into<String>>(t: T) -> Self {
+        Terminal(t.into())
+    }
+
+    pub fn empty() -> Self {
+        Self::new("empty@@")
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.0 == "empty@@"
+    }
+
+    pub fn eof() -> Self {
+        Self::new("eof@@")
+    }
+
+    pub fn is_eof(&self) -> bool {
+        self.0 == "eof@@"
+    }
 }
 
-fn replace(prod: &Production, prods: &Vec<Production>) -> Vec<Production> {
-    let mut ret = prods.clone();
+pub fn terminal<T: Into<String>>(t: T) -> Terminal {
+    Terminal(t.into())
+}
+
+pub fn none_terminal<T: Into<String>>(t: T) -> NoneTerminal {
+    NoneTerminal(t.into())
+}
+
+fn replace(prod: &Production, replicas: &Vec<Production>) -> Vec<Production> {
+    let mut ret = replicas.clone();
     for p in &mut ret {
         p.tokens.extend_from_slice(&prod.tokens[1..]);
         p.non_terminal = prod.non_terminal.clone();
@@ -102,7 +224,7 @@ fn replace(prod: &Production, prods: &Vec<Production>) -> Vec<Production> {
     ret
 }
 
-fn eliminate_direct_left_recursion(prods: Vec<Production>) -> (Vec<Production>, Vec<Production>) {
+fn eliminate_direct_left_recursion(prods: Vec<Production>) -> (Vec<Production>, Option<Vec<Production>>) {
     let (mut lret, mut rret) = (vec![], vec![]);
     let nt = prods[0].non_terminal.clone();
     for p in prods {
@@ -112,7 +234,10 @@ fn eliminate_direct_left_recursion(prods: Vec<Production>) -> (Vec<Production>, 
             lret.push(p)
         }
     }
-    let new_nt = fork(&nt);
+    if rret.is_empty() {
+        return (lret, None);
+    }
+    let new_nt = nt.fork();
     for p in &mut rret {
         p.non_terminal = new_nt.clone();
         let mut tokens: Vec<_> = p.tokens.drain(1..).collect();
@@ -128,7 +253,7 @@ fn eliminate_direct_left_recursion(prods: Vec<Production>) -> (Vec<Production>, 
     for p in &mut lret {
         p.tokens.push(Token::NT(new_nt.clone()))
     }
-    (lret, rret)
+    (lret, Some(rret))
 }
 
 pub type First = HashMap<Token, Vec<Terminal>>;
@@ -207,7 +332,7 @@ pub fn follow(cfg: &NoneLeftRecursionCFG, first: &First) -> Follow {
 
 fn exist_empty(ts: &Vec<Terminal>) -> bool {
     for t in ts {
-        if t == &Terminal::empty() {
+        if t.is_empty() {
             return true
         }
     }
@@ -226,3 +351,6 @@ fn first_insert_and_check_if_updated(first: &mut First, key: &Token, rhs: Vec<Te
 fn follow_insert_and_check_if_updated(follow: &mut Follow, key: &NoneTerminal, trailer: &Vec<Terminal>) -> bool{
     unimplemented!()
 }
+
+#[cfg(test)]
+mod test;
