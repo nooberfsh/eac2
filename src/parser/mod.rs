@@ -36,6 +36,13 @@ impl Token {
             _ => false
         }
     }
+
+    pub fn is_empty(&self) -> bool {
+        match self {
+            Token::T(t) => t.is_empty(),
+            _ => false
+        }
+    }
 }
 impl fmt::Display for Terminal {
     fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {

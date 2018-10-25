@@ -25,7 +25,9 @@ pub fn parse(tokens: &[Terminal], cfg: &NoneLeftRecursionCFG) -> Result {
         match token {
             Token::NT(nt) => {
                 if let &Some(p) = table.get(&nt).unwrap().get(tok).unwrap() {
-                    stack.extend(p.tokens.clone().into_iter().rev());
+                    if !p.tokens[0].is_empty() {
+                        stack.extend(p.tokens.clone().into_iter().rev());
+                    }
                 } else {
                     return Err(Error)
                 }
