@@ -1,3 +1,6 @@
+pub mod recursive_descent;
+pub mod ll1;
+
 use std::collections::{HashMap, HashSet};
 use std::fmt;
 
@@ -24,6 +27,13 @@ impl Token {
         match self {
             Token::NT(_) => true,
             _ => false,
+        }
+    }
+
+    pub fn is_eof(&self) -> bool {
+        match self {
+            Token::T(t) => t.is_eof(),
+            _ => false
         }
     }
 }
@@ -257,6 +267,38 @@ fn eliminate_direct_left_recursion(prods: Vec<Production>) -> (Vec<Production>, 
 
 pub type First = HashMap<Token, Vec<Terminal>>;
 pub type Follow = HashMap<NoneTerminal, Vec<Terminal>>;
+pub type Predict = HashMap<(NoneTerminal, usize), Vec<Terminal>>;
+
+pub fn predict(cfg: &NoneLeftRecursionCFG, first: &First, follow: &Follow) -> Predict {
+    let cfg = &cfg.0;
+    let mut predict = HashMap::new();
+    for nt in &cfg.non_terminals {
+        for (i, p) in cfg.productions.get(nt).unwrap().into_iter().enumerate() {
+            let mut f = first_of_production(p, first) ;
+            if exist_empty(&f) {
+                let fol = follow.get(nt).unwrap().clone();
+                f.extend(fol);
+            }
+            predict.insert((nt.clone(), i), f);
+        }
+    }
+    predict
+}
+
+fn first_of_production(p: &Production, first: &First) -> Vec<Terminal> {
+    let mut ret = vec![];
+    for token in &p.tokens {
+        let mut f = first.get(token).unwrap().clone();
+        if !exist_empty(&f) {
+            ret.extend(f);
+            return ret;
+        }
+        remove_empty(&mut f);
+        ret.extend(f)
+    }
+    ret.push(Terminal::empty());
+    ret
+}
 
 pub fn first(cfg: &NoneLeftRecursionCFG) -> First {
     let cfg = &cfg.0;
