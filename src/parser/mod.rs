@@ -1,5 +1,6 @@
 pub mod recursive_descent;
 pub mod ll1;
+pub mod lr1;
 
 use std::collections::{HashMap, HashSet};
 use std::fmt;
@@ -307,8 +308,22 @@ fn first_of_production(p: &Production, first: &First) -> Vec<Terminal> {
     ret
 }
 
-pub fn first(cfg: &NoneLeftRecursionCFG) -> First {
-    let cfg = &cfg.0;
+fn first_of_tokens(tokens: &Vec<Token>, first: &First) -> Vec<Terminal> {
+    let mut ret = vec![];
+    for token in tokens {
+        let mut f = first.get(token).unwrap().clone();
+        if !exist_empty(&f) {
+            ret.extend(f);
+            return ret;
+        }
+        remove_empty(&mut f);
+        ret.extend(f)
+    }
+    ret.push(Terminal::empty());
+    ret
+}
+
+pub fn first(cfg: &CFG) -> First {
     let mut first = First::new();
     for nt in cfg.non_terminals.clone() {
         first.insert(Token::NT(nt.clone()), vec![]);
@@ -349,8 +364,7 @@ pub fn first(cfg: &NoneLeftRecursionCFG) -> First {
     first
 }
 
-pub fn follow(cfg: &NoneLeftRecursionCFG, first: &First) -> Follow {
-    let cfg = &cfg.0;
+pub fn follow(cfg: &CFG, first: &First) -> Follow {
     let mut follow: HashMap<_, _>= cfg.non_terminals.clone().into_iter().map(|nt| (nt, vec![])).collect();
     follow.insert(cfg.start.clone(), vec![Terminal::eof()]);
 

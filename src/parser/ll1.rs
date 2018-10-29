@@ -45,8 +45,8 @@ pub fn parse(tokens: &[Terminal], cfg: &NoneLeftRecursionCFG) -> Result {
 }
 
 pub fn contruct_talbe(cfg: &NoneLeftRecursionCFG) -> Table {
-    let first = first(cfg);
-    let follow = follow(cfg, &first);
+    let first = first(&cfg.0);
+    let follow = follow(&cfg.0, &first);
     let predict = predict(cfg, &first, &follow);
     let cfg = &cfg.0;
 

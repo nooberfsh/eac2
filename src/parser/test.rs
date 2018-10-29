@@ -113,7 +113,7 @@ fn test_eleminate_left_recursion() {
 #[test]
 fn test_first() {
     let cfg = gen_cfg(&GRAMMER).into_non_left_recursion();
-    let mut first: HashMap<_, _>= first(&cfg).into_iter().filter(|(ref t, _)|t.is_non_terminal()).collect();
+    let mut first: HashMap<_, _>= first(&cfg.0).into_iter().filter(|(ref t, _)|t.is_non_terminal()).collect();
     assert_eq!(first.len(), FIRST.len());
     for (nt, expect) in FIRST.clone() {
         let f = first.get_mut(&Token::NT(NoneTerminal::new(nt))).unwrap();
@@ -127,8 +127,8 @@ fn test_first() {
 #[test]
 fn test_follow() {
     let cfg = gen_cfg(&GRAMMER).into_non_left_recursion();
-    let first = first(&cfg);
-    let mut follow = follow(&cfg, &first);
+    let first = first(&cfg.0);
+    let mut follow = follow(&cfg.0, &first);
     for (nt, expect) in FOLLOW.clone() {
         let f = follow.get_mut(&NoneTerminal::new(nt)).unwrap();
         f.sort();
