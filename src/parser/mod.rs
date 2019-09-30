@@ -28,6 +28,12 @@ pub struct Production {
     pub right: Vec<Element>,
 }
 
+impl Production {
+    fn new(left: NonTerminal, right: Vec<Element>) -> Self {
+        Production { left, right }
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct ProdBlock {
     pub left: NonTerminal,
@@ -77,6 +83,7 @@ pub fn eliminate_direct_left_recursion(block: ProdBlock) -> (ProdBlock, Option<P
         elements.push(Element::NT(left_ext.clone()));
         prod.right = elements;
     }
+    recursive.push(Production::new(left_ext, vec![Element::Empty]));
     let right_block = ProdBlock::new(left, recursive);
 
     (left_block, Some(right_block))
