@@ -11,7 +11,9 @@ pub struct NonTerminal {
 
 impl NonTerminal {
     pub fn fork(&self) -> NonTerminal {
-        NonTerminal {name: self.name.clone() + "@"}
+        NonTerminal {
+            name: self.name.clone() + "@",
+        }
     }
 }
 
@@ -54,8 +56,15 @@ pub struct CFG {
     pub producttions: Vec<ProdBlock>,
 }
 
+#[derive(Debug, Clone)]
+pub struct CFGWithoutLeftRecursion {
+    cfg: CFG,
+}
+
 pub struct ParseTree;
 pub struct Error;
+
+///////////////////////// eliminate left recursion /////////////////////////////////////////////////
 
 pub fn eliminate_direct_left_recursion(block: ProdBlock) -> (ProdBlock, Option<ProdBlock>) {
     let left = block.left.clone();
@@ -65,7 +74,7 @@ pub fn eliminate_direct_left_recursion(block: ProdBlock) -> (ProdBlock, Option<P
         .partition(|p| p.right[0] == left);
 
     if recursive.is_empty() {
-        let blk  = ProdBlock::new(left, non_recursive);
+        let blk = ProdBlock::new(left, non_recursive);
         return (blk, None);
     }
 
@@ -87,6 +96,56 @@ pub fn eliminate_direct_left_recursion(block: ProdBlock) -> (ProdBlock, Option<P
     let right_block = ProdBlock::new(left, recursive);
 
     (left_block, Some(right_block))
+}
+
+pub fn eliminate_left_recursion(mut cfg: CFG) -> CFGWithoutLeftRecursion {
+    if cfg.producttions.len() == 1 {
+        return CFGWithoutLeftRecursion { cfg };
+    }
+
+    let mut new_pbs = vec![];
+    let mut forks = vec![];
+
+    for i in 0..cfg.producttions.len() {
+        let new_pb = replace_multi(&cfg.producttions[..i], cfg.producttions[i].clone());
+        let (l, r) = eliminate_direct_left_recursion(new_pb);
+        new_pbs.push(l);
+        if let Some(fork) = r {
+            cfg.non_terminals.push(fork.left.clone());
+            forks.push(fork);
+        }
+    }
+
+    new_pbs.extend(forks);
+    CFGWithoutLeftRecursion { cfg }
+}
+
+fn replace_multi(lhs: &[ProdBlock], rhs: ProdBlock) -> ProdBlock {
+    lhs.iter().fold(rhs, |acc, lhs| replace_pb(lhs, acc))
+}
+
+fn replace_pb(lhs: &ProdBlock, rhs: ProdBlock) -> ProdBlock {
+    let mut productions = vec![];
+    let left = rhs.left;
+    for prod in rhs.productions {
+        productions.extend(replace_prod(lhs, prod))
+    }
+
+    ProdBlock::new(left, productions)
+}
+
+fn replace_prod(lhs: &ProdBlock, prod: Production) -> Vec<Production> {
+    let mut ret = vec![];
+    if prod.right[0] == lhs.left {
+        for prod in &lhs.productions {
+            let mut replica = prod.right.clone();
+            replica.extend_from_slice(&prod.right[1..]);
+            ret.push(Production::new(prod.left.clone(), replica));
+        }
+    } else {
+        ret.push(prod)
+    }
+    ret
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////

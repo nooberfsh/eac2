@@ -1,5 +1,5 @@
-use crate::parser::{Error, NonTerminal, ParseTree, Terminal, CFG};
+use crate::parser::{Error, ParseTree, Terminal, CFG};
 
-pub fn backtrack_parse(cfg: &CFG, tokens: &[Terminal]) -> Result<ParseTree, Error> {
+pub fn backtrack_parse(_cfg: &CFG, _tokens: &[Terminal]) -> Result<ParseTree, Error> {
     unimplemented!()
 }
