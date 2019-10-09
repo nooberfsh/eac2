@@ -1,15 +1,29 @@
 pub mod backtrack_parse;
 
-#[derive(Debug, Clone)]
+#[cfg(test)]
+mod test;
+
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct Terminal {
     name: String,
 }
-#[derive(Debug, Clone)]
+
+impl Terminal {
+    pub fn new<S: Into<String>>(name: S) -> Self {
+        Terminal {name: name.into()}
+    }
+}
+
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct NonTerminal {
     name: String,
 }
 
 impl NonTerminal {
+    pub fn new<S: Into<String>>(name: S) -> Self {
+        NonTerminal {name: name.into()}
+    }
+
     pub fn fork(&self) -> NonTerminal {
         NonTerminal {
             name: self.name.clone() + "@",
@@ -53,7 +67,7 @@ pub struct CFG {
     pub start: NonTerminal,
     pub non_terminals: Vec<NonTerminal>,
     pub terminals: Vec<Terminal>,
-    pub producttions: Vec<ProdBlock>,
+    pub productions: Vec<ProdBlock>,
 }
 
 #[derive(Debug, Clone)]
@@ -99,15 +113,15 @@ pub fn eliminate_direct_left_recursion(block: ProdBlock) -> (ProdBlock, Option<P
 }
 
 pub fn eliminate_left_recursion(mut cfg: CFG) -> CFGWithoutLeftRecursion {
-    if cfg.producttions.len() == 1 {
+    if cfg.productions.len() == 1 {
         return CFGWithoutLeftRecursion { cfg };
     }
 
     let mut new_pbs = vec![];
     let mut forks = vec![];
 
-    for i in 0..cfg.producttions.len() {
-        let new_pb = replace_multi(&cfg.producttions[..i], cfg.producttions[i].clone());
+    for i in 0..cfg.productions.len() {
+        let new_pb = replace_multi(&cfg.productions[..i], cfg.productions[i].clone());
         let (l, r) = eliminate_direct_left_recursion(new_pb);
         new_pbs.push(l);
         if let Some(fork) = r {
